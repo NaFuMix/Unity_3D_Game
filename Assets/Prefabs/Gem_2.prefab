@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 3075442578344383297}
   - component: {fileID: 212452919382918640}
   - component: {fileID: 3202149853729096327}
-  - component: {fileID: 6964285485260466445}
+  - component: {fileID: 7761884057154712991}
   m_Layer: 0
   m_Name: Gem_2
   m_TagString: Untagged
@@ -30,7 +30,7 @@ Transform:
   m_GameObject: {fileID: 3573438296176457725}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.78668743, y: 0.878, z: -1.9409145}
+  m_LocalPosition: {x: 2.109309, y: 0.32500035, z: -7.5932326}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -112,7 +112,7 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.325
+  m_Radius: 1
   m_Center: {x: 0, y: 0.000000014901161, z: 0}
 --- !u!54 &3202149853729096327
 Rigidbody:
@@ -141,7 +141,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &6964285485260466445
+--- !u!114 &7761884057154712991
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

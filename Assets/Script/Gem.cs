@@ -17,18 +17,15 @@ public class Gem : MonoBehaviour
 
     void Update()
     {
-        // Rotate
         transform.Rotate(
             Vector3.up * rotateSpeed * Time.deltaTime
         );
 
-        // Floating animation
-        float offset = Mathf.Sin(
-            Time.time * floatSpeed
-        ) * floatHeight;
+        float offset =
+            Mathf.Sin(Time.time * floatSpeed) * floatHeight;
 
-        transform.position = startPosition
-            + Vector3.up * offset;
+        transform.position =
+            startPosition + Vector3.up * offset;
     }
 
     void OnTriggerEnter(Collider other)
@@ -39,7 +36,11 @@ public class Gem : MonoBehaviour
         {
             collected = true;
 
-            GameManager.Instance.CollectGem();
+            // เพิ่มคะแนน
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.CollectGem();
+            }
 
             Destroy(gameObject);
         }
