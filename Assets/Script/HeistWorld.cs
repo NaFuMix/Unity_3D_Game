@@ -8,10 +8,10 @@ using UnityEngine.UI;
 public sealed class HeistWorld : MonoBehaviour
 {
     public float respawnSeconds = 5f;
-    public float sightRange = 14f;
+    public float sightRange = 25f;
     public float sightAngle = 65f;
-    public float ghostSpeed = 3.4f;
-    public float redLightIntensity = 18f;
+    public float ghostSpeed = 10f;
+    public float redLightIntensity = 100f;
     private GhostPresentation ghostPresentation;
 
     private sealed class PlayerState
