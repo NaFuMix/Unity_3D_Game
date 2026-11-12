@@ -37,6 +37,8 @@ public class GameManager : MonoBehaviour
         resultText.text = "";
 
         UpdateUI();
+        if (GetComponent<HeistWorld>() == null)
+            gameObject.AddComponent<HeistWorld>();
     }
 
     void Update()
