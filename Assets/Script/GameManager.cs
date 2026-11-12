@@ -17,6 +17,7 @@ public class GameManager : MonoBehaviour
 
     private int collectedGems = 0;
     private float remainingTime;
+    private GameAudio gameAudio;
 
     public bool IsGameOver { get; private set; }
 
@@ -29,6 +30,9 @@ public class GameManager : MonoBehaviour
     {
         remainingTime = gameTime;
         IsGameOver = false;
+        gameAudio = GetComponent<GameAudio>();
+        if (gameAudio == null)
+            gameAudio = gameObject.AddComponent<GameAudio>();
 
         resultText.text = "";
 
@@ -51,6 +55,9 @@ public class GameManager : MonoBehaviour
                 LoseGame();
         }
 
+        if (!IsGameOver)
+            gameAudio.SetTimeRemaining(remainingTime);
+
         UpdateUI();
     }
 
@@ -65,6 +72,10 @@ public class GameManager : MonoBehaviour
         if (collectedGems >= targetGems)
         {
             WinGame();
+        }
+        else
+        {
+            gameAudio?.PlayPickup();
         }
     }
 
@@ -81,11 +92,13 @@ public class GameManager : MonoBehaviour
     {
         IsGameOver = true;
         resultText.text = "YOU WIN!";
+        gameAudio?.PlayResult(true);
     }
 
     void LoseGame()
     {
         IsGameOver = true;
         resultText.text = "TIME UP! TRY AGAIN";
+        gameAudio?.PlayResult(false);
     }
 }
