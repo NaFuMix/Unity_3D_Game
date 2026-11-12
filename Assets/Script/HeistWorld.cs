@@ -13,8 +13,6 @@ public sealed class HeistWorld : MonoBehaviour
     public float ghostSpeed = 10f;
     public float redLightIntensity = 100f;
     private GhostPresentation ghostPresentation;
-    public float ghostSpeed = 3.4f;
-    public float redLightIntensity = 18f;
     private sealed class GhostState
     {
         public CharacterController controller;
