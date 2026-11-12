@@ -11,6 +11,8 @@ public sealed class HeistWorld : MonoBehaviour
     public float sightRange = 14f;
     public float sightAngle = 65f;
     public float ghostSpeed = 3.4f;
+    public float redLightIntensity = 18f;
+    private GhostPresentation ghostPresentation;
 
     private sealed class PlayerState
     {
@@ -200,7 +202,9 @@ public sealed class HeistWorld : MonoBehaviour
         if (shader == null) shader = Shader.Find("Standard");
         ghostMaterial = new Material(shader);
         ghostMaterial.color = new Color(0.36f, 0.40f, 0.48f);
-        body.GetComponent<Renderer>().sharedMaterial = ghostMaterial;
+        body.GetComponent<Renderer>().enabled = false;
+        ghostPresentation = body.AddComponent<GhostPresentation>();
+        ghostPresentation.Initialize(ghostMaterial);
         Light lamp = new GameObject("Red searchlight", typeof(Light)).GetComponent<Light>();
         lamp.transform.SetParent(body.transform, false);
         lamp.transform.localPosition = new Vector3(0, 0.45f, 0.55f);
@@ -208,7 +212,7 @@ public sealed class HeistWorld : MonoBehaviour
         lamp.color = Color.red;
         lamp.range = sightRange;
         lamp.spotAngle = sightAngle;
-        lamp.intensity = 6f;
+        lamp.intensity = redLightIntensity;
         lamp.shadows = LightShadows.Soft;
     }
 
@@ -235,7 +239,11 @@ public sealed class HeistWorld : MonoBehaviour
             if (state.caught) message = "Player " + state.player.playerId + " respawns in " + Mathf.CeilToInt(state.remaining) + "s";
         }
         status.text = message;
-        if (ghost == null || GameManager.Instance.IsGameOver) return;
+        if (ghost == null || GameManager.Instance.IsGameOver)
+        {
+            if (ghostPresentation != null) ghostPresentation.SetChasing(false);
+            return;
+        }
         PlaceDot(ghostDot, ghost.transform.position);
 
         PlayerState target = null;
@@ -254,6 +262,7 @@ public sealed class HeistWorld : MonoBehaviour
                 closest = delta.magnitude;
             }
         }
+        ghostPresentation.SetChasing(target != null);
         patrolTime -= Time.deltaTime;
         if (patrolTime <= 0f)
         {
@@ -276,6 +285,7 @@ public sealed class HeistWorld : MonoBehaviour
     private IEnumerator Respawn(PlayerState state)
     {
         state.caught = true;
+        ghostPresentation.SetChasing(false);
         PlayerController player = state.player;
         player.enabled = false;
         Renderer[] renderers = player.GetComponentsInChildren<Renderer>();
