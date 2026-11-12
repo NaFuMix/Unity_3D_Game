@@ -12,7 +12,6 @@ public sealed class HeistWorld : MonoBehaviour
     public float sightAngle = 65f;
     public float ghostSpeed = 10f;
     public float redLightIntensity = 100f;
-    private GhostPresentation ghostPresentation;
     private sealed class GhostState
     {
         public CharacterController controller;
@@ -56,9 +55,10 @@ public sealed class HeistWorld : MonoBehaviour
             mapRadius = Mathf.Max(mapRadius, Mathf.Abs(state.spawn.x) + 2f, Mathf.Abs(state.spawn.z) + 2f);
 
         BuildHud();
+        RefreshGems();
+        InvokeRepeating(nameof(RefreshGems), 0.5f, 0.5f);
         for (int i = 0; i < 2; i++)
             SpawnGhost(i + 1);
-        InvokeRepeating(nameof(RefreshGems), 0f, 0.5f);
     }
 
     private void BuildHud()
@@ -205,15 +205,6 @@ public sealed class HeistWorld : MonoBehaviour
         ghost.height = 2f;
         ghost.radius = 0.45f;
         body.transform.SetParent(transform, true);
-        if (ghostMaterial == null)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            ghostMaterial = new Material(shader);
-        }
-        body.GetComponent<Renderer>().enabled = false;
-        GhostPresentation ghostPresentation = body.AddComponent<GhostPresentation>();
-        ghostPresentation.Initialize(ghostMaterial);
         Light lamp = new GameObject("Red searchlight", typeof(Light)).GetComponent<Light>();
         lamp.transform.SetParent(body.transform, false);
         lamp.transform.localPosition = new Vector3(0, 0.45f, 0.55f);
@@ -223,13 +214,44 @@ public sealed class HeistWorld : MonoBehaviour
         lamp.spotAngle = sightAngle;
         lamp.intensity = redLightIntensity;
         lamp.shadows = LightShadows.Soft;
-        ghosts.Add(new GhostState
+        GhostState state = new GhostState
         {
             controller = ghost,
-            presentation = ghostPresentation,
             dot = Dot(map, new Color(1f, 0.18f, 0.2f), 10),
             patrolDirection = body.transform.forward
-        });
+        };
+        ghosts.Add(state);
+        PlaceDot(state.dot, spawn);
+        InitializeGhostPresentation(body, state);
+    }
+
+    private void InitializeGhostPresentation(GameObject body, GhostState state)
+    {
+        Renderer fallback = body.GetComponent<Renderer>();
+        if (ghostMaterial == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader != null)
+                ghostMaterial = new Material(shader);
+        }
+        Material material = ghostMaterial != null ? ghostMaterial : fallback.sharedMaterial;
+        if (material == null) return;
+
+        GhostPresentation presentation = body.AddComponent<GhostPresentation>();
+        try
+        {
+            presentation.Initialize(material);
+            state.presentation = presentation;
+            fallback.enabled = false;
+        }
+        catch (System.Exception exception)
+        {
+            foreach (Transform child in body.transform)
+                if (child.GetComponent<MeshFilter>() != null)
+                    Destroy(child.gameObject);
+            Destroy(presentation);
+            Debug.LogWarning("Ghost presentation unavailable: " + exception.Message, body);
+        }
     }
 
     private bool TrySpawn(Vector3 position, out Vector3 spawn)
@@ -287,7 +309,8 @@ public sealed class HeistWorld : MonoBehaviour
                 closest = delta.magnitude;
             }
         }
-        ghostState.presentation.SetChasing(target != null);
+        if (ghostState.presentation != null)
+            ghostState.presentation.SetChasing(target != null);
         ghostState.patrolTime -= Time.deltaTime;
         if (ghostState.patrolTime <= 0f)
         {
@@ -306,7 +329,8 @@ public sealed class HeistWorld : MonoBehaviour
         }
         if (target != null && closest < 1.3f)
         {
-            ghostState.presentation.SetChasing(false);
+            if (ghostState.presentation != null)
+                ghostState.presentation.SetChasing(false);
             StartCoroutine(Respawn(target));
         }
     }
