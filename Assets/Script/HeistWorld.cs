@@ -13,6 +13,18 @@ public sealed class HeistWorld : MonoBehaviour
     public float ghostSpeed = 10f;
     public float redLightIntensity = 100f;
     private GhostPresentation ghostPresentation;
+    public float ghostSpeed = 3.4f;
+    public float redLightIntensity = 18f;
+    private sealed class GhostState
+    {
+        public CharacterController controller;
+        public GhostPresentation presentation;
+        public RectTransform dot;
+        public float patrolTime;
+        public Vector3 patrolDirection;
+    }
+
+    private readonly List<GhostState> ghosts = new List<GhostState>();
 
     private sealed class PlayerState
     {
@@ -26,13 +38,9 @@ public sealed class HeistWorld : MonoBehaviour
     private readonly List<PlayerState> players = new List<PlayerState>();
     private readonly Dictionary<Gem, RectTransform> gemDots = new Dictionary<Gem, RectTransform>();
     private readonly List<RectTransform> playerDots = new List<RectTransform>();
-    private CharacterController ghost;
     private RectTransform map;
-    private RectTransform ghostDot;
     private TMP_Text status;
     private float mapRadius = 15f;
-    private float patrolTime;
-    private Vector3 patrolDirection = Vector3.forward;
     private Material ghostMaterial;
 
     private IEnumerator Start()
@@ -50,7 +58,8 @@ public sealed class HeistWorld : MonoBehaviour
             mapRadius = Mathf.Max(mapRadius, Mathf.Abs(state.spawn.x) + 2f, Mathf.Abs(state.spawn.z) + 2f);
 
         BuildHud();
-        SpawnGhost();
+        for (int i = 0; i < 2; i++)
+            SpawnGhost(i + 1);
         InvokeRepeating(nameof(RefreshGems), 0f, 0.5f);
     }
 
@@ -82,10 +91,9 @@ public sealed class HeistWorld : MonoBehaviour
         Label(mapPanel, "GEM MAP", new Vector2(16, -8), new Vector2(220, 28), 18);
         map = Panel(mapPanel, new Vector2(0, 1), new Vector2(15, -42), new Vector2(220, 220));
         map.GetComponent<Image>().color = new Color(0.055f, 0.075f, 0.13f, 0.95f);
-        Label(mapPanel, "Pink: gems   Blue: players   Red: ghost", new Vector2(10, -264), new Vector2(235, 20), 11);
+        Label(mapPanel, "Pink: gems   Blue: players   Red: ghosts", new Vector2(10, -264), new Vector2(235, 20), 11);
         foreach (PlayerState state in players)
             playerDots.Add(Dot(map, Color.cyan, 9));
-        ghostDot = Dot(map, new Color(1f, 0.18f, 0.2f), 10);
         RectTransform bottom = Panel(canvasObject.transform, Vector2.zero, new Vector2(24, 24), new Vector2(540, 56));
         bottom.pivot = Vector2.zero;
         status = Label(bottom, "", new Vector2(14, -8), new Vector2(510, 40), 18);
@@ -161,7 +169,7 @@ public sealed class HeistWorld : MonoBehaviour
         }
     }
 
-    private void SpawnGhost()
+    private void SpawnGhost(int number)
     {
         // Spawn at a free gem location away from all players, on the floor beneath it.
         Vector3 spawn = Vector3.zero;
@@ -189,21 +197,24 @@ public sealed class HeistWorld : MonoBehaviour
         }
 
         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        body.name = "Red Lantern Ghost";
+        body.name = "Red Lantern Ghost " + number;
+        body.transform.rotation = Quaternion.Euler(0f, (number - 1) * 180f, 0f);
         body.transform.position = spawn;
         Collider primitiveCollider = body.GetComponent<Collider>();
         primitiveCollider.enabled = false;
         Destroy(primitiveCollider);
-        ghost = body.AddComponent<CharacterController>();
+        CharacterController ghost = body.AddComponent<CharacterController>();
         ghost.height = 2f;
         ghost.radius = 0.45f;
         body.transform.SetParent(transform, true);
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) shader = Shader.Find("Standard");
-        ghostMaterial = new Material(shader);
-        ghostMaterial.color = new Color(0.36f, 0.40f, 0.48f);
+        if (ghostMaterial == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            ghostMaterial = new Material(shader);
+        }
         body.GetComponent<Renderer>().enabled = false;
-        ghostPresentation = body.AddComponent<GhostPresentation>();
+        GhostPresentation ghostPresentation = body.AddComponent<GhostPresentation>();
         ghostPresentation.Initialize(ghostMaterial);
         Light lamp = new GameObject("Red searchlight", typeof(Light)).GetComponent<Light>();
         lamp.transform.SetParent(body.transform, false);
@@ -214,6 +225,13 @@ public sealed class HeistWorld : MonoBehaviour
         lamp.spotAngle = sightAngle;
         lamp.intensity = redLightIntensity;
         lamp.shadows = LightShadows.Soft;
+        ghosts.Add(new GhostState
+        {
+            controller = ghost,
+            presentation = ghostPresentation,
+            dot = Dot(map, new Color(1f, 0.18f, 0.2f), 10),
+            patrolDirection = body.transform.forward
+        });
     }
 
     private bool TrySpawn(Vector3 position, out Vector3 spawn)
@@ -224,6 +242,8 @@ public sealed class HeistWorld : MonoBehaviour
         if (!Physics.Raycast(position + Vector3.up * 5f, Vector3.down, out RaycastHit floor, 20f, ~0, QueryTriggerInteraction.Ignore))
             return false;
         spawn = floor.point + Vector3.up * 1.05f;
+        foreach (GhostState existing in ghosts)
+            if (Vector3.Distance(spawn, existing.controller.transform.position) < 6f) return false;
         return !Physics.CheckCapsule(spawn - Vector3.up * 0.5f, spawn + Vector3.up * 0.5f, 0.46f, ~0, QueryTriggerInteraction.Ignore);
     }
 
@@ -239,12 +259,19 @@ public sealed class HeistWorld : MonoBehaviour
             if (state.caught) message = "Player " + state.player.playerId + " respawns in " + Mathf.CeilToInt(state.remaining) + "s";
         }
         status.text = message;
+        foreach (GhostState state in ghosts)
+            UpdateGhost(state);
+    }
+
+    private void UpdateGhost(GhostState ghostState)
+    {
+        CharacterController ghost = ghostState.controller;
         if (ghost == null || GameManager.Instance.IsGameOver)
         {
-            if (ghostPresentation != null) ghostPresentation.SetChasing(false);
+            if (ghostState.presentation != null) ghostState.presentation.SetChasing(false);
             return;
         }
-        PlaceDot(ghostDot, ghost.transform.position);
+        PlaceDot(ghostState.dot, ghost.transform.position);
 
         PlayerState target = null;
         float closest = sightRange;
@@ -262,30 +289,33 @@ public sealed class HeistWorld : MonoBehaviour
                 closest = delta.magnitude;
             }
         }
-        ghostPresentation.SetChasing(target != null);
-        patrolTime -= Time.deltaTime;
-        if (patrolTime <= 0f)
+        ghostState.presentation.SetChasing(target != null);
+        ghostState.patrolTime -= Time.deltaTime;
+        if (ghostState.patrolTime <= 0f)
         {
-            patrolTime = 2.5f;
-            patrolDirection = Quaternion.Euler(0, Random.Range(-110f, 110f), 0) * ghost.transform.forward;
+            ghostState.patrolTime = 2.5f;
+            ghostState.patrolDirection = Quaternion.Euler(0, Random.Range(-110f, 110f), 0) * ghost.transform.forward;
         }
-        Vector3 direction = target == null ? patrolDirection : target.player.transform.position - ghost.transform.position;
+        Vector3 direction = target == null ? ghostState.patrolDirection : target.player.transform.position - ghost.transform.position;
         direction.y = 0;
         if (direction.sqrMagnitude > 0.01f)
             ghost.transform.rotation = Quaternion.RotateTowards(ghost.transform.rotation, Quaternion.LookRotation(direction), 150f * Time.deltaTime);
         CollisionFlags flags = ghost.Move((ghost.transform.forward * (target == null ? ghostSpeed * 0.45f : ghostSpeed) + Vector3.down * 5f) * Time.deltaTime);
         if ((flags & CollisionFlags.Sides) != 0)
         {
-            patrolDirection = Quaternion.Euler(0, 100f, 0) * ghost.transform.forward;
-            patrolTime = 1f;
+            ghostState.patrolDirection = Quaternion.Euler(0, 100f, 0) * ghost.transform.forward;
+            ghostState.patrolTime = 1f;
         }
-        if (target != null && closest < 1.3f) StartCoroutine(Respawn(target));
+        if (target != null && closest < 1.3f)
+        {
+            ghostState.presentation.SetChasing(false);
+            StartCoroutine(Respawn(target));
+        }
     }
 
     private IEnumerator Respawn(PlayerState state)
     {
         state.caught = true;
-        ghostPresentation.SetChasing(false);
         PlayerController player = state.player;
         player.enabled = false;
         Renderer[] renderers = player.GetComponentsInChildren<Renderer>();
