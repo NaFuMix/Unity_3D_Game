@@ -47,6 +47,12 @@ public class PlayerController : MonoBehaviour
         collectHash = Animator.StringToHash("Collect");
     }
 
+    public void ResetVerticalVelocity()
+    {
+        verticalVelocity = 0f;
+        UpdateAnimationSpeed(0f);
+    }
+
     void Update()
     {
         if (GameManager.Instance != null &&
