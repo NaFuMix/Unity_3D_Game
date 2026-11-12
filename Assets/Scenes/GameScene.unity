@@ -80667,6 +80667,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7185153417229878753, guid: 427a73f3f55e7fa4d9cea0a60a2d9307, type: 3}
+      propertyPath: jumpKey
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7185153417229878753, guid: 427a73f3f55e7fa4d9cea0a60a2d9307, type: 3}
       propertyPath: runSpeed
       value: 15
       objectReference: {fileID: 0}
